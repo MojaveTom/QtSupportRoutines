@@ -15,6 +15,7 @@ QVariantList DebugInfoMessage;
 QDateTime StartTime;
 bool ShowDiagnostics=false, ImmediateDiagnostics=false, DontActuallyWriteDatabase=false;
 QString ConnectionName;
+QString DebugConnectionName;
 
 void DumpDebugInfoToTerminal();
 void DumpDebugInfoToDatabase(QSqlDatabase &dbConn);
@@ -190,11 +191,12 @@ void DumpDebugInfo()
         qDebug() << "Return -- nothing to dump.";
         return;
     }
-    QSqlDatabase dbConn = QSqlDatabase::database(ConnectionName);
+    qDebug() << "Using DebugConnectionName: " << DebugConnectionName;
+    QSqlDatabase dbConn = QSqlDatabase::database(DebugConnectionName);
     if (!dbConn.isValid())
-        qCritical("%s is NOT valid.", qUtf8Printable(ConnectionName));
+        qCritical("%s is NOT valid.", qUtf8Printable(DebugConnectionName));
     if (!dbConn.isOpen())
-        qCritical("%s is NOT open.", qUtf8Printable(ConnectionName));
+        qCritical("%s is NOT open.", qUtf8Printable(DebugConnectionName));
 
     if (!dbConn.isOpen())
         DumpDebugInfoToTerminal();
@@ -226,7 +228,7 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
         return QDateTime::currentDateTime();;
     }
     DumpDebugInfo();        // dump arrays to database.
-    QSqlDatabase dbConn = QSqlDatabase::database(ConnectionName);
+    QSqlDatabase dbConn = QSqlDatabase::database(DebugConnectionName);
 
     if (!dbConn.isOpen())
         return QDateTime::currentDateTime();         // No diagnostics stored in database to retrieve.
@@ -291,6 +293,11 @@ void DetermineCommitTag(const QString &pathToExecutable, const char *programName
         fileInfo.setFile(sourcePath);
         ConnectionName = fileInfo.baseName();
         qDebug() << "ConnectionName set:" << ConnectionName;
+    }
+    if (DebugConnectionName.isEmpty())
+    {
+        DebugConnectionName = ConnectionName;
+        qDebug() << "DebugConnectionName set:" << DebugConnectionName;
     }
 
     fileInfo.setFile(sourcePath + "/ArchiveTag.txt");
@@ -375,7 +382,7 @@ QSqlError addConnection(const QString &driver, const QString &dbName, const QStr
     return err;
 }
 
-void addConnectionFromString(const QString &arg)
+void addConnectionFromString(const QString &arg, bool DebugConnection)
 {
     qInfo() << "Begin";
     QUrl url(arg, QUrl::TolerantMode);
@@ -383,11 +390,55 @@ void addConnectionFromString(const QString &arg)
         qWarning("Invalid URL: %s", qPrintable(arg));
         qInfo() << "Return";
     }
-    QSqlError err = addConnection(url.scheme().toUpper(), url.path().mid(1), url.host(),
-                                  url.userName(), url.password(), url.port(-1));
-    if (err.type() != QSqlError::NoError)
-        qWarning() << "Unable to open connection:" << err;
+    if (DebugConnection)
+    {
+        QSqlError err = addDebugConnection(url.scheme().toUpper(), url.path().mid(1), url.host(),
+                                      url.userName(), url.password(), url.port(-1), QString("Debug%1").arg(ConnectionName));
+        if (err.type() != QSqlError::NoError)
+            qWarning() << "Unable to open debug database connection:" << err;
+    }
+    else
+    {
+        QSqlError err = addConnection(url.scheme().toUpper(), url.path().mid(1), url.host(),
+                                      url.userName(), url.password(), url.port(-1));
+        if (err.type() != QSqlError::NoError)
+            qWarning() << "Unable to open connection:" << err;
+    }
     qInfo() << "Return";
+}
+
+QSqlError addDebugConnection(const QString &driver, const QString &dbName, const QString &host,
+                        const QString &user, const QString &passwd, int port, QString connName)
+{
+    qInfo() << "Begin";
+    qInfo() << driver << dbName << host << user << passwd << port;
+    QSqlError err;
+    if (!connName.isEmpty())
+        DebugConnectionName = connName;
+    QSqlDatabase db = QSqlDatabase::addDatabase(driver, DebugConnectionName);
+    if (!db.isValid())
+    {
+        err = db.lastError();
+        qWarning() << "Unable to addDatabase" << driver << err;
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(DebugConnectionName);
+        qInfo() << "Return" << err;
+        return err;
+    }
+    db.setDatabaseName(dbName);
+    db.setHostName(host);
+    db.setPort(port);
+    if (!db.open(user, passwd))
+    {
+        qWarning() << "Unable to open database" << driver << dbName << host << port;
+        err = db.lastError();
+        db = QSqlDatabase();
+        QSqlDatabase::removeDatabase(DebugConnectionName);
+    }
+    else
+        qInfo() << "The database connection " << DebugConnectionName << " is open.";
+    qInfo() << "Return" << err;
+    return err;
 }
 
 QString setDbTimeZoneSQL(QTimeZone &theZone, QDateTime atTime)
