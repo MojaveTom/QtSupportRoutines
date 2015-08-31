@@ -4,7 +4,7 @@
 
 
 /******    Global data declarations   *********/
-QString CommitTag;
+QString CommitTag("NotSet");
 QVariantList DebugInfoTime;
 QVariantList DebugInfoSeverity;
 QVariantList DebugInfoGitTag;
@@ -257,7 +257,7 @@ void DetermineCommitTag(const QString &pathToExecutable, const char *programName
 {
     qInfo() << "Begin";
 
-    if (!CommitTag.isEmpty())
+    if ((!CommitTag.isEmpty()) && (CommitTag != "NotSet"))
     {
         qDebug() << "Return -- CommitTag already set:" << CommitTag;
         return;
