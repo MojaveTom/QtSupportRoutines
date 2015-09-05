@@ -568,7 +568,7 @@ QSqlError addDebugConnection(const QString &driver, const QString &dbName, const
     }
     else
     {
-        qInfo() << "The database connection " << DebugConnectionName << " is open.  Test for DebugInfo table.";
+        qInfo() << "The debug database connection " << DebugConnectionName << " is open.  Test for DebugInfo table.";
         QSqlQuery query(db);
         if (!query.exec("SELECT COUNT(*) FROM DebugInfo"))
         {
