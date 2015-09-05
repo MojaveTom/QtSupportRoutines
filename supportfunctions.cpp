@@ -567,7 +567,42 @@ QSqlError addDebugConnection(const QString &driver, const QString &dbName, const
         QSqlDatabase::removeDatabase(DebugConnectionName);
     }
     else
-        qInfo() << "The database connection " << DebugConnectionName << " is open.";
+    {
+        qInfo() << "The database connection " << DebugConnectionName << " is open.  Test for DebugInfo table.";
+        QSqlQuery query(db);
+        if (!query.exec("SELECT COUNT(*) FROM DebugInfo"))
+        {
+            qDebug("Assume an error occurred because the DebugInfo table does not exist.");
+            qDebug("Last query was \"%s\"; the error description is \"%s\"."
+                   , qUtf8Printable(query.lastQuery())
+                   , qUtf8Printable(query.lastError().text())
+                   );
+            if (!query.exec(
+                        "CREATE TABLE `DebugInfo` ("
+                          "`idDebugInfo` int(11) NOT NULL AUTO_INCREMENT,"
+                          "`Time` varchar(30) DEFAULT NULL COMMENT 'Time when debug info was generated.',"
+                          "`Severity` varchar(8) DEFAULT NULL,"
+                          "`ArchiveTag` varchar(40) DEFAULT NULL COMMENT 'Id of this source code in the source control archive.',"
+                          "`FilePath` text COMMENT 'Path to source file where info was logged.',"
+                          "`FunctionName` text COMMENT 'Name of function in which info was logged.',"
+                          "`SourceLineNo` int(11) DEFAULT NULL COMMENT 'Line number in source file.',"
+                          "`Message` text COMMENT 'Body of info message.',"
+                          "PRIMARY KEY (`idDebugInfo`)"
+                        ") ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8"))
+            {
+                qDebug("Creating DebugInfo table failed.  Assume table already exists.");
+                qDebug("Error was \"%s\"", qUtf8Printable(query.lastError().text()));
+            }
+            else
+            {
+                qInfo("Successfully created DebugInfo table in database %s.", qUtf8Printable(db.databaseName()));
+            }
+        }
+        else
+        {
+            qInfo("The database has a DebugInfo table.");
+        }
+    }
     qInfo() << "Return" << err;
     return err;
 }
