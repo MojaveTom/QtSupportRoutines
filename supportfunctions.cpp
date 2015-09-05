@@ -1,26 +1,65 @@
+/*!
+@file
+@brief Definitions of support functions.
+@author Thomas A. DeMay
+@date 2015
+@par    Copyright (C) 2015  Thomas A. DeMay
+@par
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    any later version.
+@par
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+@par
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ */
 #include "supportfunctions.h"
 #include <unistd.h>
 #include <stdlib.h>
 
 
 /******    Global data declarations   *********/
-QString CommitTag("NotSet");
-QVariantList DebugInfoTime;
-QVariantList DebugInfoSeverity;
-QVariantList DebugInfoGitTag;
-QVariantList DebugInfoFile;
-QVariantList DebugInfoFunction;
-QVariantList DebugInfoLineNo;
-QVariantList DebugInfoMessage;
-QDateTime StartTime;
-bool ShowDiagnostics=false, ImmediateDiagnostics=false, DontActuallyWriteDatabase=false;
-QString ConnectionName;
-QString DebugConnectionName;
+QString CommitTag = QString("NotSet"); //!< String containing the Git commit tag for this project.
+QVariantList DebugInfoTime;     //!< Array of times of calls to debugging output routines.
+QVariantList DebugInfoSeverity; //!< Array of severities of calls to debugging output routines.
+QVariantList DebugInfoGitTag;   //!< Array of Git tags of calls to debugging output routines.
+QVariantList DebugInfoFile;     //!< Array of file names of calls to debugging output routines.
+QVariantList DebugInfoFunction; //!< Array of function signatures of calls to debugging output routines.
+QVariantList DebugInfoLineNo;   //!< Array of line numbers of calls to debugging output routines.
+QVariantList DebugInfoMessage;  //!< Array of diagnostic messages of calls to debugging output routines.
+QDateTime StartTime;            //!< Time of last output for ShowDiagnosticsSince.
 
+//!< Initially set to the start time of the program; updated each time ShowDiagnosticsSince is called.
+bool ShowDiagnostics=false;             //!< Flag to print diagnostics to terminal.
+bool ImmediateDiagnostics=false;        //!< Flag to ONLY print diagnostics to terminal.
+bool DontActuallyWriteDatabase=false;   //!< Flag to not actually write any recors to database.
+
+//!< This flag does not affect saving diagnostics to the database.
+QString ConnectionName;         //!< Connection name for accessing the database.
+QString DebugConnectionName;    //!< Connection name for accessing the DEBUG database.
+
+/*! Local global function declarations. */
 void DumpDebugInfoToTerminal();
 void DumpDebugInfoToDatabase(QSqlDatabase &dbConn);
 
 /***********  Global function definitions   *************/
+
+/*!
+ * \brief saveMessageOutput -- Save diagnostic information to the variant lists.
+ *
+ * Capture diagnostic information to global variant lists; to be written to the database
+ * or terminal at a later time.
+ * Fatal messages abort the program after dumping the diagnostics arrays.
+ * \param type      The severity indicator.
+ * \param context   Contains file, function, and line number.
+ * \param msg       The user's diagnostic message.
+ */
 void saveMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     DebugInfoTime.append(QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz t"));
@@ -47,6 +86,7 @@ void saveMessageOutput(QtMsgType type, const QMessageLogContext &context, const 
         DumpDebugInfo();
         abort();
     }
+    /*! IF the arrays get big, dump the debug info to its destination and clear arrays. */
     if (DebugInfoTime.size() >= 10000)     // Keep arrays from getting toooo large.
     {
         // Switch to terminal message handling to prevent getting here recursively.
@@ -56,6 +96,16 @@ void saveMessageOutput(QtMsgType type, const QMessageLogContext &context, const 
     }
 }
 
+/*!
+ * \brief terminalMessageOutput -- Send debug info to stderr in some nice format.
+ *
+ * If there are any saved up diagnostics; they are printed first, and the arrays cleared.
+ * The function is not re-entrant, and is protected from re-entry.
+ * Fatal messages abort the program.
+ * \param type      Message severity.
+ * \param context   Context contains the file, function, and line number.
+ * \param msg       The diagnostic message.
+ */
 void terminalMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg)
 {
     static bool reentered = false;
@@ -114,6 +164,9 @@ void terminalMessageOutput(QtMsgType type, const QMessageLogContext &context, co
         abort();
 }
 
+/*!
+ * \brief DumpDebugInfoToTerminal -- Send contents of debug info arrays to stderr.
+ */
 void DumpDebugInfoToTerminal()
 {
     qDebug() << "Begin";
@@ -139,6 +192,12 @@ void DumpDebugInfoToTerminal()
     return;
 }
 
+/*!
+ * \brief DumpDebugInfoToDatabase -- Send contents of debug info arrays to database.
+ *
+ * Purges database entries older than 2 days.
+ * \param dbConn    The database connection for debug info.
+ */
 void DumpDebugInfoToDatabase(QSqlDatabase &dbConn)
 {
     qDebug() << "Begin";
@@ -173,6 +232,7 @@ void DumpDebugInfoToDatabase(QSqlDatabase &dbConn)
     bool success = query.exec();
     */
 
+    /* Purge old diagnostic data from database. */
     if (!query.exec(QString("DELETE FROM DebugInfo WHERE Time < '%1'")
                     .arg(QDate::currentDate().addDays(-2).toString("yyyy-MM-dd"))))
         qCritical() << "Error deleting old debug info from database: " << query.lastError() << "\nQuery: " << query.lastQuery();
@@ -183,6 +243,11 @@ void DumpDebugInfoToDatabase(QSqlDatabase &dbConn)
     return;
 }
 
+/*!
+ * \brief DumpDebugInfo -- Send saved diagnostics to database.
+ *
+ * If database is not available, send to terminal (stderr).
+ */
 void DumpDebugInfo()
 {
     qDebug() << "Begin";
@@ -212,6 +277,12 @@ void DumpDebugInfo()
     qDebug() << "Return";
 }
 
+/*!
+ * \brief FlushDiagnostics -- Convenience function to show unseen diagnostics.
+ *
+ * Only does anything if we're supposed to show diagnostics, but not seeing
+ * diagnostics immediately.
+ */
 void FlushDiagnostics()
 {
     if (!ShowDiagnostics || ImmediateDiagnostics)
@@ -219,6 +290,16 @@ void FlushDiagnostics()
     StartTime = ShowDiagnosticsSince(StartTime);
 }
 
+/*!
+ * \brief ShowDiagnosticsSince -- Retrieve diagnostics from database and print.
+ *
+ * Dump any saved diagnostics first, then query the database for diagnostics
+ * that have been entered since \a startTime.  If the return value is used as
+ * the startTime argument for the next call to this function, a view
+ * of the diagnostics without time breaks will be presented at programmed intervals.
+ * \param startTime     Beginning of time for which to show diagnostics.
+ * \return              The current time.
+ */
 QDateTime ShowDiagnosticsSince(const QDateTime startTime)
 {
     qDebug() << "Begin";
@@ -234,6 +315,9 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
         return QDateTime::currentDateTime();         // No diagnostics stored in database to retrieve.
     QSqlQuery query(dbConn);
 
+    /* Turn off saving of diagnostics while querying the database.
+     * Diagnostics will be sent to the default Qt message handler.
+     */
     QtMessageHandler prevMsgHandler = qInstallMessageHandler(0);
 
     if (query.exec(QString("SELECT CONCAT(Time, '   '"
@@ -247,12 +331,32 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
             qInfo("%s", qUtf8Printable(query.value(0).toString()));
     else
         qDebug() << "Diag extraction error:" << query.lastQuery() << query.lastError();
+
+    /* Resotore previous message handler. */
     qInstallMessageHandler(prevMsgHandler);
     QDateTime timeNow = QDateTime::currentDateTime();
     qDebug() << "Return" << timeNow;
     return timeNow;
 }
 
+/*!
+ * \brief DetermineCommitTag -- Get latest Git commit tag.
+ *
+ * The function uses the path to the executable and the
+ * program name to find the source directory.  The source
+ * directory is assumed to be a sibling of some parent of
+ * the path to the executable.
+ *
+ * Four sources:
+ *  1.  Default value "NotSet"
+ *  2.  A pre-existing value in CommitTag (other than "NotSet")
+ *  3.  File "ArchiveTag.txt" in the source directory.
+ *  4.  Running a Git command in the source directory.
+ *          Save tag to "ArchiveTag.txt".
+ *
+ * \param pathToExecutable Usually from program command line argument 0.
+ * \param programName      Provided by the macro "__FILE__" in the main program.
+ */
 void DetermineCommitTag(const QString &pathToExecutable, const char *programName)
 {
     qInfo() << "Begin";
@@ -348,6 +452,17 @@ void DetermineCommitTag(const QString &pathToExecutable, const char *programName
     qInfo() << "Return:" << CommitTag;
 }
 
+/*!
+ * \brief addConnection -- Make a connection to the database.
+ * \param driver    Database server identifier, "QMYSQL" for this program.
+ * \param dbName    Name of the database schema to which to connect.
+ * \param host      Host of the database server.
+ * \param user      Username for database access.
+ * \param passwd    Password for database access.
+ * \param port      Tcp/Ip port to use for the connection.
+ * \param connName  Name to apply to the connection.  Saved in global ConnectionName.
+ * \return Error indication.
+ */
 QSqlError addConnection(const QString &driver, const QString &dbName, const QString &host,
                         const QString &user, const QString &passwd, int port, QString connName)
 {
@@ -382,6 +497,11 @@ QSqlError addConnection(const QString &driver, const QString &dbName, const QStr
     return err;
 }
 
+/*!
+ * \brief addConnectionFromString -- Parse string to make connection.
+ * \param arg               String like "QMYSQL://user:password@host:port/schema"
+ * \param DebugConnection   True if we're making a connection to the debug database.
+ */
 void addConnectionFromString(const QString &arg, bool DebugConnection)
 {
     qInfo() << "Begin";
@@ -407,6 +527,17 @@ void addConnectionFromString(const QString &arg, bool DebugConnection)
     qInfo() << "Return";
 }
 
+/*!
+ * \brief addDebugConnection -- Make a connection to the database for debug info.
+ * \param driver    Database server identifier, "QMYSQL" for this program.
+ * \param dbName    Name of the database schema to which to connect.
+ * \param host      Host of the database server.
+ * \param user      Username for database access.
+ * \param passwd    Password for database access.
+ * \param port      Tcp/Ip port to use for the connection.
+ * \param connName  Name to apply to the connection.  Saved in global DebugConnectionName.
+ * \return Error indication.
+ */
 QSqlError addDebugConnection(const QString &driver, const QString &dbName, const QString &host,
                         const QString &user, const QString &passwd, int port, QString connName)
 {
@@ -441,6 +572,16 @@ QSqlError addDebugConnection(const QString &driver, const QString &dbName, const
     return err;
 }
 
+/*!
+ * \brief setDbTimeZoneSQL -- Create SQL string to set timezone.
+ *
+ * If the \a atTime argument is during daylight savings time, you may
+ * get a different result than if it is during standard time.
+ *
+ * \param theZone   The timezone.
+ * \param atTime    DateTime to use.
+ * \return
+ */
 QString setDbTimeZoneSQL(QTimeZone &theZone, QDateTime atTime)
 {
     qDebug("Begin");
