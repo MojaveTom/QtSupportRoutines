@@ -1,6 +1,25 @@
 /*!
 @file
 @brief Definitions of support functions.
+
+There are three kinds of functions in this file.
+
+First, there are functions to interface with Qt's debugging facilities
+to extract more information than is usually seen.  These functions can
+optionally save a bunch of debug messages in internal arrays and then
+store them in a database table or print them on stderr.  The other option
+is to send diagnostics immediately to stderr.
+
+The ability to store diagnostics in a database table means that the
+program can run silently and if an anomoly is detected, the debug
+info can be examined up to 2 days later.  Notes.txt has example SQL
+for retrieving diagnostic information from the database.
+
+Second, there are functions for connecting to the database(s).
+
+Third, there is a function to generate SQL to set the database
+timezone to the local standard time.
+
 @author Thomas A. DeMay
 @date 2015
 @par    Copyright (C) 2015  Thomas A. DeMay
