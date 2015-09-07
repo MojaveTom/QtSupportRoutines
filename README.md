@@ -44,7 +44,7 @@ Second, there are functions for connecting to the database(s).
 Third, there is a function to generate SQL to set the database
 timezone to the timezone given.
 
-
+\code
 /*********************************
 SQL to extract records from the DebugInfo table starting from 2310 yesterday.
 **********************************/
@@ -62,3 +62,4 @@ SELECT Time
  /* AND ArchiveTag LIKE 'notset' */ /* To see only program starts. */
 ;
 /* ## comment protects " " between words to avoid SQL errors. */
+\endcode
