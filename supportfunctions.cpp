@@ -1,14 +1,32 @@
 /*!
-@file
-@brief Definitions of support functions.
+\file supportfunctions.cpp
+\brief Definitions of support functions.
+\author Thomas A. DeMay
+\date 2015
+\par    Copyright (C) 2015  Thomas A. DeMay
 
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+\details
 There are three kinds of functions in this file.
 
 First, there are functions to interface with Qt's debugging facilities
 to extract more information than is usually seen.  These functions can
 optionally save a bunch of debug messages in internal arrays and then
-store them in a database table or print them on stderr.  The other option
-is to send diagnostics immediately to stderr.
+store them in a database table or print them to \a stderr.  The other option
+is to send diagnostics immediately to \a stderr.
 
 The ability to store diagnostics in a database table means that the
 program can run silently and if an anomoly is detected, the debug
@@ -18,25 +36,8 @@ for retrieving diagnostic information from the database.
 Second, there are functions for connecting to the database(s).
 
 Third, there is a function to generate SQL to set the database
-timezone to the local standard time.
+timezone to the timezone given.
 
-@author Thomas A. DeMay
-@date 2015
-@par    Copyright (C) 2015  Thomas A. DeMay
-@par
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 3 of the License, or
-    any later version.
-@par
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-@par
-    You should have received a copy of the GNU General Public License along
-    with this program; if not, write to the Free Software Foundation, Inc.,
-    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 #include "supportfunctions.h"
 #include <unistd.h>
@@ -116,7 +117,7 @@ void saveMessageOutput(QtMsgType type, const QMessageLogContext &context, const 
 }
 
 /*!
- * \brief terminalMessageOutput -- Send debug info to stderr in some nice format.
+ * \brief terminalMessageOutput -- Send debug info to \a stderr in some nice format.
  *
  * If there are any saved up diagnostics; they are printed first, and the arrays cleared.
  * The function is not re-entrant, and is protected from re-entry.
@@ -184,7 +185,7 @@ void terminalMessageOutput(QtMsgType type, const QMessageLogContext &context, co
 }
 
 /*!
- * \brief DumpDebugInfoToTerminal -- Send contents of debug info arrays to stderr.
+ * \brief DumpDebugInfoToTerminal -- Send contents of debug info arrays to \a stderr.
  */
 void DumpDebugInfoToTerminal()
 {
@@ -265,7 +266,7 @@ void DumpDebugInfoToDatabase(QSqlDatabase &dbConn)
 /*!
  * \brief DumpDebugInfo -- Send saved diagnostics to database.
  *
- * If database is not available, send to terminal (stderr).
+ * If database is not available, send to terminal via \a stderr.
  */
 void DumpDebugInfo()
 {
@@ -361,10 +362,13 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
 /*!
  * \brief DetermineCommitTag -- Get latest Git commit tag.
  *
- * The function uses the path to the executable and the
- * program name to find the source directory.  The source
- * directory is assumed to be a sibling of some parent of
- * the path to the executable.
+ * This function should be called very near the beginning
+ * of the main function so that diagnostics will have the
+ * correct tag.  Until this function is called, all diagnostics
+ * will have the tag: "NotSet".
+ *
+ * The function uses the path to the main function to find
+ * the source directory and the program name.
  *
  * Four sources:
  *  1.  Default value "NotSet"
@@ -373,54 +377,40 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
  *  4.  Running a Git command in the source directory.
  *          Save tag to "ArchiveTag.txt".
  *
- * \param pathToExecutable Usually from program command line argument 0.
- * \param programName      Provided by the macro "__FILE__" in the main program.
+ * If the database connection name has not been set, this function sets it
+ * to the program name.
+ *
+ * \param mainFuncPath      Provided by the macro "__FILE__" in the main program.
  */
-void DetermineCommitTag(const QString &pathToExecutable, const char *programName)
+void DetermineCommitTag(const char *mainFuncPath)
 {
     qInfo() << "Begin";
+    qDebug("Main func path is \"%s\"", qUtf8Printable(mainFuncPath));
+    QFileInfo fileInfo(mainFuncPath);
+    qDebug("Canonical file path to main func is \"%s\"", qUtf8Printable(fileInfo.canonicalFilePath()));
+    QString sourcePath = fileInfo.canonicalPath();
+    qDebug("Path to main function is \"%s\"", qUtf8Printable(sourcePath));
+    fileInfo.setFile(sourcePath);
+    QString programName = fileInfo.baseName();
+    qDebug("The program name is \"%s\"", qUtf8Printable(programName));
+    qDebug("The source path is \"%s\"", qUtf8Printable(sourcePath));
 
-    if ((!CommitTag.isEmpty()) && (CommitTag != "NotSet"))
-    {
-        qDebug() << "Return -- CommitTag already set:" << CommitTag;
-        return;
-    }
-
-    QFileInfo fileInfo(pathToExecutable);
-    QString fp = fileInfo.canonicalPath();
-    QString sourcePath;
-    qDebug() << "file path is " << fp;
-    while (fp.size() > 2)
-    {
-        fileInfo.setFile(fp + "/" + programName);
-        sourcePath = fileInfo.absolutePath();
-        qDebug() << "Source Path becomes " << sourcePath;
-        if (fileInfo.exists())
-            break;
-        //        fp = fp.left(fp.lastIndexOf('/'));      // This gets the "/" added above.
-        fp = fp.left(fp.lastIndexOf('/'));      // This gets the one before that.
-        qDebug() << "file path is " << fp;
-    }
-    if (sourcePath == "")
-    {
-        qWarning() << "Source path not found.";
-        CommitTag = "Source path not found";
-        qInfo() << "Return";
-        return;
-    }
-
-
-    qDebug() << "Source path is" << sourcePath;
+    /*  Set connection names to program name if not already set. */
     if (ConnectionName.isEmpty())
     {
-        fileInfo.setFile(sourcePath);
-        ConnectionName = fileInfo.baseName();
+        ConnectionName = programName;
         qDebug() << "ConnectionName set:" << ConnectionName;
     }
     if (DebugConnectionName.isEmpty())
     {
         DebugConnectionName = ConnectionName;
         qDebug() << "DebugConnectionName set:" << DebugConnectionName;
+    }
+
+    if ((!CommitTag.isEmpty()) && (CommitTag != "NotSet"))
+    {
+        qDebug() << "Return -- CommitTag already set:" << CommitTag;
+        return;
     }
 
     fileInfo.setFile(sourcePath + "/ArchiveTag.txt");
