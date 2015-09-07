@@ -367,8 +367,14 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
  * correct tag.  Until this function is called, all diagnostics
  * will have the tag: "NotSet".
  *
- * The function uses the path to the main function to find
- * the source directory and the program name.
+ * The function uses the value of the macro SOURCE_PATH to
+ * find the ArchiveTag.txt file or the .git directory to
+ * determine the commit tag per 3 or 4 below.  The SOURCE_PATH
+ * macro is defined in the .pro file with the statement:
+ * DEFINES += SOURCE_DIR=\'\"$$_PRO_FILE_PWD_\"\'
+ *
+ * The function uses \a qApp->applicationName() to determine the
+ * program name.
  *
  * Four sources:
  *  1.  Default value "NotSet"
@@ -380,20 +386,16 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
  * If the database connection name has not been set, this function sets it
  * to the program name.
  *
- * \param mainFuncPath      Provided by the macro "__FILE__" in the main program.
  */
-void DetermineCommitTag(const char *mainFuncPath)
+void DetermineCommitTag()
 {
     qInfo() << "Begin";
-    qDebug("Main func path is \"%s\"", qUtf8Printable(mainFuncPath));
-    QFileInfo fileInfo(mainFuncPath);
-    qDebug("Canonical file path to main func is \"%s\"", qUtf8Printable(fileInfo.canonicalFilePath()));
-    QString sourcePath = fileInfo.canonicalPath();
-    qDebug("Path to main function is \"%s\"", qUtf8Printable(sourcePath));
-    fileInfo.setFile(sourcePath);
-    QString programName = fileInfo.baseName();
+    QFileInfo fileInfo;
+    fileInfo.setFile(".");
+    QString sourcePath(SOURCE_DIR);
+    qDebug("Path to sources is \"%s\"", qUtf8Printable(sourcePath));
+    QString programName = qApp->applicationName();
     qDebug("The program name is \"%s\"", qUtf8Printable(programName));
-    qDebug("The source path is \"%s\"", qUtf8Printable(sourcePath));
 
     /*  Set connection names to program name if not already set. */
     if (ConnectionName.isEmpty())

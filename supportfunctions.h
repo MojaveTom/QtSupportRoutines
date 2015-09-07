@@ -32,7 +32,7 @@ extern bool ShowDiagnostics, ImmediateDiagnostics, DontActuallyWriteDatabase;
 extern QString ConnectionName, CommitTag, DebugConnectionName;
 
 /*********  Global function declarations  ***************/
-void DetermineCommitTag(const char *mainFuncPath);
+void DetermineCommitTag();
 
 void saveMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
 void terminalMessageOutput(QtMsgType type, const QMessageLogContext &context, const QString &msg);
