@@ -1,0 +1,3 @@
+# Files that git should ignore
+.DS_Store
+DoxygenLog.txt
