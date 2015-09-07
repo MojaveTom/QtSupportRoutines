@@ -371,7 +371,7 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
  * find the ArchiveTag.txt file or the .git directory to
  * determine the commit tag per 3 or 4 below.  The SOURCE_PATH
  * macro is defined in the .pro file with the statement:
- * DEFINES += SOURCE_DIR=\'\"$$_PRO_FILE_PWD_\"\'
+ * \verbatim DEFINES += SOURCE_DIR=\'\"$$_PRO_FILE_PWD_\"\' \endverbatim
  *
  * The function uses \a qApp->applicationName() to determine the
  * program name.
