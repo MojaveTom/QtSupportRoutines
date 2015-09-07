@@ -44,22 +44,21 @@ Second, there are functions for connecting to the database(s).
 Third, there is a function to generate SQL to set the database
 timezone to the timezone given.
 
-\code
-/*********************************
-SQL to extract records from the DebugInfo table starting from 2310 yesterday.
-**********************************/
-SELECT Time
-, RIGHT(ArchiveTag,8) as TAG    /* Only show 8 characters of the ArchiveTag */
-, Severity
-  /* Extract and display just the function name; the field contains the whole function signature. */
-, SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(FunctionName, '::', -1), '(', 1), ' ', -1) AS Function
-, SourceLineNo AS Line
-  /* Only show first 240 chars of message, 
-     replacing \r with "\r" and \n with "\n" to keep message all on one line. */
-, LEFT(REPLACE(REPLACE(Message,'\r','\\r'),'\n','\\n'), 240) AS Message /* ## */
- FROM DebugInfo  /* ## */
- WHERE Time > TIMESTAMPADD(MINUTE, -50, DATE(NOW()))      /* 50 minutes before midnight today. */
- /* AND ArchiveTag LIKE 'notset' */ /* To see only program starts. */
-;
-/* ## comment protects " " between words to avoid SQL errors. */
-\endcode
+
+    /*********************************
+    SQL to extract records from the DebugInfo table starting from 2310 yesterday.
+    **********************************/
+    SELECT Time
+    , RIGHT(ArchiveTag,8) as TAG    /* Only show 8 characters of the ArchiveTag */
+    , Severity
+      /* Extract and display just the function name; the field contains the whole function signature. */
+    , SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(FunctionName, '::', -1), '(', 1), ' ', -1) AS Function
+    , SourceLineNo AS Line
+      /* Only show first 240 chars of message, 
+         replacing \r with "\r" and \n with "\n" to keep message all on one line. */
+    , LEFT(REPLACE(REPLACE(Message,'\r','\\r'),'\n','\\n'), 240) AS Message /* ## */
+     FROM DebugInfo  /* ## */
+     WHERE Time > TIMESTAMPADD(MINUTE, -50, DATE(NOW()))      /* 50 minutes before midnight today. */
+     /* AND ArchiveTag LIKE 'notset' */ /* To see only program starts. */
+    ;
+    /* ## comment protects " " between words to avoid SQL errors. */
