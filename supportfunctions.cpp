@@ -387,6 +387,10 @@ QDateTime ShowDiagnosticsSince(const QDateTime startTime)
  * to the program name.
  *
  */
+#ifndef SOURCE_DIR
+#error "You must define SOURCE_DIR macro in the .pro file.  Use the command:  DEFINES += SOURCE_DIR=\'\"$$_PRO_FILE_PWD_\"\'  "
+#endif
+
 void DetermineCommitTag()
 {
     qInfo() << "Begin";
